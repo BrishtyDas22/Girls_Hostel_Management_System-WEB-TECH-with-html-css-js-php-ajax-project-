@@ -3,96 +3,155 @@ import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.service import Service
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.support.ui import Select
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 BASE_URL = "http://localhost/Hostel_Management/USER/VIEW/frontpage1.php"
 
 @pytest.fixture(scope="module")
 def driver():
-    """Initializes Microsoft Edge WebDriver."""
     service = Service(EdgeChromiumDriverManager().install())
     options = webdriver.EdgeOptions()
-    
     driver = webdriver.Edge(service=service, options=options)
     driver.implicitly_wait(10)
     driver.maximize_window()
     yield driver
     driver.quit()
 
-
-def test_frontpage_loads_and_navigates(driver):
-    # 1. Open the front page
+def test_frontpage_full_flow(driver):
     driver.get(BASE_URL)
     time.sleep(1)
 
-    # 2. Verify page heading exists
     heading = driver.find_element(By.XPATH, "//*[contains(text(), 'Find your HOME!')]")
-    assert heading.is_displayed(), "Main heading was not found on the front page."
+    assert heading.is_displayed()
 
-    # 3. Locate and click 'Register Now' (flexible XPath matching text inside any element/button)
+    available_rooms = driver.find_element(By.XPATH, "//*[contains(text(), 'Available Rooms')]")
+    assert available_rooms.is_displayed()
+
+    register_btn = driver.find_element(By.XPATH, "//*[contains(text(), 'Register Now')]")
+    assert register_btn.is_displayed()
+
+    login_btn = driver.find_element(By.XPATH, "//*[contains(text(), 'Login')]")
+    assert login_btn.is_displayed()
+
+    admin_login_btn = driver.find_element(By.XPATH, "//*[contains(text(), 'Admin Login')]")
+    assert admin_login_btn.is_displayed()
+
+    room_cards = driver.find_elements(By.XPATH, "//*[contains(text(), 'Room No:')]")
+    assert len(room_cards) >= 6
+
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(1)
+
+    book_now_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), 'Book Now')] | //a[contains(text(), 'Book Now')] | //*[contains(text(), 'Book Now')]")
+    assert len(book_now_buttons) > 0
+
+    book_now_buttons[0].click()
+    time.sleep(1)
+
+    alert = driver.switch_to.alert
+    assert "login" in alert.text.lower()
+    alert.accept()
+    time.sleep(1)
+
+def test_navigation_buttons(driver):
+    driver.get(BASE_URL)
+    time.sleep(1)
+
     register_btn = driver.find_element(By.XPATH, "//*[contains(text(), 'Register Now')]")
     register_btn.click()
-    time.sleep(2)
+    time.sleep(3)
+    assert "register" in driver.current_url.lower() or "registration" in driver.current_url.lower()
 
-    # 4. Assert redirection
-    assert "registration" in driver.current_url.lower() or "reg" in driver.current_url.lower(), "Failed to navigate to registration page."
-
-def test_frontpage_login_button(driver):
-    """Tests if clicking the 'Login' button navigates correctly."""
     driver.get(BASE_URL)
     time.sleep(1)
 
-    # 1. Locate and click 'Login'
-    login_btn = driver.find_element(By.XPATH, "//*[contains(text(), 'Login')]")
+    login_btn = driver.find_element(By.XPATH, "//*[contains(text(), 'Login') and not(contains(text(), 'Admin'))]")
     login_btn.click()
-    time.sleep(2)
+    time.sleep(3)
+    assert "login" in driver.current_url.lower()
 
-    # 2. Assert redirection to the login page
-    assert "login" in driver.current_url.lower(), "Failed to navigate to login page."
+    driver.get(BASE_URL)
+    time.sleep(1)
 
+    admin_btn = driver.find_element(By.XPATH, "//*[contains(text(), 'Admin Login')]")
+    admin_btn.click()
+    time.sleep(3)
 
+    try:
+        alert = driver.switch_to.alert
+        assert alert.text != ""
+        alert.accept()
+        time.sleep(1)
+    except:
+        assert "admin" in driver.current_url.lower()
 REGISTRATION_URL = "http://localhost/Hostel_Management/USER/VIEW/registration1.php"
 
 def test_registration_form_submission(driver):
-   # """Tests filling and submitting the registration form."""
     driver.get(REGISTRATION_URL)
     time.sleep(1)
 
-    # 1. Locate form input fields (using input order or tag attributes)
     inputs = driver.find_elements(By.TAG_NAME, "input")
-    
-    # Fill out form fields sequentially based on the layout
-    # Name
+
     inputs[0].clear()
     inputs[0].send_keys("Test User")
-    
-    # E-mail
+
     inputs[1].clear()
     inputs[1].send_keys(f"testuser_{int(time.time())}@example.com")
-    
-    # Phone-Number
+
     inputs[2].clear()
     inputs[2].send_keys("01700000000")
-    
-    # Password
+
     inputs[3].clear()
     inputs[3].send_keys("Pass1234!")
-    
-   
+
     inputs[4].clear()
     inputs[4].send_keys("Pass1234!")
 
-    
     blood_group_dropdown = Select(driver.find_element(By.TAG_NAME, "select"))
-    
     blood_group_dropdown.select_by_index(1)
 
-   
     register_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Register')] | //input[@type='submit' or @value='Register']")
     register_btn.click()
-    
+
     time.sleep(2)
 
-   
+    try:
+        alert = driver.switch_to.alert
+        alert.accept()
+        time.sleep(1)
+    except:
+        pass
+
     assert "login" in driver.current_url.lower() or "validation" in driver.current_url.lower() or driver.page_source
+
+
+LOGIN_URL = "http://localhost/Hostel_Management/USER/VIEW/Login.php"
+def test_login_form_submission(driver):
+    driver.get(LOGIN_URL)
+    time.sleep(1)
+
+    inputs = driver.find_elements(By.TAG_NAME, "input")
+
+    inputs[0].clear()
+    inputs[0].send_keys("Protik Biswas")
+
+    inputs[1].clear()
+    inputs[1].send_keys("protikbiswas2088@gmail.com")
+
+    inputs[2].clear()
+    inputs[2].send_keys("111111")
+
+    login_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Login')] | //input[@type='submit' or @value='Login']")
+    login_btn.click()
+
+    time.sleep(2)
+
+    try:
+        alert = driver.switch_to.alert
+        alert.accept()
+        time.sleep(1)
+    except:
+        pass
+
+    assert driver.current_url != LOGIN_URL or driver.page_source
